@@ -1,23 +1,20 @@
-# Get the database using the method we defined in pymongo_test_insert file
+# method to upload csv files to mongoDB
+import csv
 from pymongo_get_db import get_database
-dbname = get_database()
-collection_name = dbname["user_1_items"]
-item_1 = {
-  "_id" : "U1IT00001",
-  "item_name" : "Blender",
-  "max_discount" : "10%",
-  "batch_number" : "RR450020FRG",
-  "price" : 340,
-  "category" : "kitchen appliance"
-}
 
-item_2 = {
-  "_id" : "U1IT00002",
-  "item_name" : "Egg",
-  "category" : "food",
-  "quantity" : 12,
-  "price" : 36,
-  "item_description" : "brown country eggs"
-}
-collection_name.insert_many([item_1,item_2])
-print('done')
+def upload_csv(db_name, collection_name, csv_path):
+    # get db and collection
+    db_name = get_database(db_name)
+    collection_name = db_name[collection_name]
+
+    #read csv file
+    csv_json = csv.DictReader(open(csv_path))
+    collection_json = []
+    for row in csv_json:
+        collection_json.append(row)
+    print(collection_json)
+    # upload to collection
+    collection_name.insert_many(collection_json)
+
+
+
