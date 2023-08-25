@@ -22,16 +22,18 @@ app.secret_key = 'throughthemountain42'
 db = get_database('Covid19_Risk_Factors')
 
 #homepage route
-@app.route('/')
+@app.route('/', methods=['GET','POST'])
 def index():
     #get names of all collections
     collection_list = sorted(db.collection_names())
-    #get collection documents
-    all_data = db[current_collection].find()
+
+    #set default collections from mongoDB
+    all_data = db['Test'].find()
 
     return render_template("index.html",
                            data=all_data, #dataframe of current collection
-                           collection_list=collection_list) #all collections)
+                           collection_list=collection_list) #all collections
+
 
 
 #add a new row
@@ -78,12 +80,21 @@ def delete(_id):
 
     return redirect('/')
 
-@app.route('/update_variable')
-def update_variable():
+#update from selected collection
+@app.route('/get_collection_data')
+def get_collection_data():
     selected_collection = request.args.get('collection')
-    global current_collection
-    current_collection = f"Selected collection: {selected_collection}"
-    return jsonify({"updatedVariable": current_collection})
+    collection_data = db[selected_collection].find()
+
+    # Convert ObjectId to strings
+    data_list = []
+    for row in collection_data:
+        data = {key: value for key, value in row.items()}
+        data['_id'] = str(data['_id'])  # Convert ObjectId to string
+        data_list.append(data)
+    print(jsonify(data_list))
+    return jsonify(data_list)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
