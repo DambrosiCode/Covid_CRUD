@@ -25,6 +25,7 @@ src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js">
 </script>
 
 <!-- custom JS -->
+<!-- update updatedVariableDisplay html element when new collection is selected -->
 <script>
 function updateVariable(selectedCollection) {
     fetch(`/update_variable?collection=${selectedCollection}`)
@@ -35,6 +36,19 @@ function updateVariable(selectedCollection) {
         .catch(error => console.error("Error:", error));
 }
 </script>
+
+<!-- listen for changes in collections dropdown and trigger ajax request to flask app -->
+<script>
+function updateVariable(selectedCollection) {
+    fetch(`/update_data?collection=${selectedCollection}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById("updatedVariableDisplay").textContent = data.updatedVariable;
+        })
+        .catch(error => console.error("Error:", error));
+}
+</script>
+
 
 </body>
 </html>
