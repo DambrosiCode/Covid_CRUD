@@ -40,7 +40,7 @@ function updateVariable(selectedCollection) {
 <!-- listen for changes in collections dropdown and trigger ajax request to flask app -->
 <script>
 function updateVariable(selectedCollection) {
-    fetch(`/update_data?collection=${selectedCollection}`)
+    fetch(`/?collection=${selectedCollection}`)
         .then(response => response.json())
         .then(data => {
             document.getElementById("updatedVariableDisplay").textContent = data.updatedVariable;
