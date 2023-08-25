@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+
+<link rel="stylesheet"
+href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+
+    <meta charset="UTF-8">
+    <title>{% block title %} {% endblock %} </title>
+</head>
+<body>
+
+{% block body %} {% endblock %}
+
+
+<script
+ src="https://code.jquery.com/jquery-3.4.1.slim.min.js">
+</script>
+<script
+src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js">
+</script>
+<script
+src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js">
+</script>
+
+<!-- custom JS -->
+<script>
+function updateVariable(selectedCollection) {
+    fetch(`/update_variable?collection=${selectedCollection}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById("updatedVariableDisplay").textContent = data.updatedVariable;
+        })
+        .catch(error => console.error("Error:", error));
+}
+</script>
+
+</body>
+</html>

@@ -4,7 +4,7 @@ import json
 
 def get_database(db_name):
     # load in password etc from config json file
-    with open("config.json", "r") as config_file:
+    with open("./config.json", "r") as config_file:
         config = json.load(config_file)
         print(config)
 
