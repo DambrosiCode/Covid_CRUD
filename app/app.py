@@ -1,89 +1,84 @@
-# import packages
-from flask import Flask, render_template, redirect, request, flash, jsonify
-from flask_bootstrap import Bootstrap
+from dash import Dash, dash_table, dcc, html, Input, Output, State, callback
 from pymongo_get_db import get_database
-from bson import ObjectId
 import pandas as pd
-import os
+from bson import ObjectId
 
-#TODO: set collection
-#TODO: filter by column
-#TODO: upload csv data
-#TODO: download as csv
-#TODO: change tab title
-#TODO: favicon
-
-current_collection = "Test"
-
-#load Flask
-app = Flask(__name__)
-app.secret_key = 'throughthemountain42'
-#get mongoDB
-db = get_database('Covid19_Risk_Factors')
-
-#homepage route
-@app.route('/')
-def index():
-    #get names of all collections
-    collection_list = sorted(db.collection_names())
-    #get collection documents
-    all_data = db[current_collection].find()
-
-    return render_template("index.html",
-                           data=all_data, #dataframe of current collection
-                           collection_list=collection_list) #all collections)
+app = Dash(__name__)
+#TODO: Create
+#TODO: Deletes
+#TODO: Change between collections
+#TODO: Searchable
+#TODO: Upload CSV
+#TODO: Verify user when changes are made
+#TODO: Vizualize statistics
+#TODO: Improve Aesthetics
 
 
-#add a new row
-@app.route('/insert', methods=['POST'])
-def insert():
-    if request.method == 'POST':
-        name = request.form['name']
-        email = request.form['email']
-        phone = request.form['phone']
+#mongoDB
+mongo_db = get_database('Covid19_Risk_Factors')
+collection = mongo_db['Test']
+df = pd.DataFrame(collection.find())
+#covnvert object ID to string
+df['_id'] = df['_id'].astype(str)
+print('========')
 
-        db[current_collection].insert_one({'name':name, 'email':email, 'phone':phone})
-        flash("New Data Successfully Added")
-        return redirect('/')
+app.layout = html.Div(children=[
+    #datatable
+    dash_table.DataTable(
+        id='editable-table',
+        columns=[
+            {'name': col, 'id': col, 'deletable':False} for col in df.columns
+        ],
+        data=df.to_dict('records'),
+        editable=True,
+        row_deletable=True
+    ),
+    html.Button('Add Row', id='add-row-button', n_clicks=0),
+    html.Button('Update Database', id='mongo-update-button', n_clicks=0),
 
-#TODO: have this run on string id in URL like delete
-#update a row
-@app.route('/update', methods=['GET','POST'])
-def update():
-    if request.method == 'POST':
-        #_id = request.form.get('_id')
-        #print(ObjectId(_id))
-        print(request.form['_id'])
-        db[current_collection].update_one(
-            {'_id':ObjectId(request.form['_id'])},
-            {'$set':{
-                'name':request.form['name'],
-                'email':request.form['email'],
-                'phone':request.form['phone']
-            }}
-        )
+    #confirmation popup
+    dcc.ConfirmDialog(
+        id='update-confirm-box',
+        message='Updated Confirmed',
+    )
+])
 
-        flash("Data Successfully Updated")
+#add new rows
+@callback(
+    Output('editable-table', 'data'),
+    Input('add-row-button', 'n_clicks'),
+    State('editable-table', 'data'),
+    State('editable-table', 'columns'))
+def add_row(n_clicks, rows, columns):
+    if n_clicks > 0:
+        rows.append({c['id']: '' for c in columns})
+    return rows
 
-        return redirect('/')
+#TODO: should new columns be addable?
 
-#delete row
-@app.route('/delete/<string:_id>', methods=['POST'])
-def delete(_id):
-    _id = ObjectId(_id)
-    db[current_collection].delete_one({'_id':_id})
+#update mongoDB
+@callback(
+    Output('update-confirm-box', 'displayed'),
+    Input('mongo-update-button', 'n_clicks'),
+    Input('editable-table', 'data'),
+)
+def update_mongo(click, rows):
+    if click > 0:
+        #TODO: also probably can make this not a for loop
+        '''TODO: so what should happen is when the 'update' button is pressed 
+        this method compares the difference between the the database from pymongo (old)
+        and the current edited dataframe (new). Then any rows that have been edited it can update
+        any rows deleted it can remove, and any rows added it can add. 
+        '''
+        for row in rows:
+            #convert doc ID to an ObjectId
+            doc_id = ObjectId(row['_id'])
+            # remove string _id from row
+            new_doc = {key: value for key, value in row.items() if key != '_id'}
+            #update the document by the _id
+            collection.update_one({'_id': doc_id}, {'$set': new_doc})
 
-    flash("Document Successfully Deleted")
+        return True
 
-
-    return redirect('/')
-
-@app.route('/update_variable')
-def update_variable():
-    selected_collection = request.args.get('collection')
-    global current_collection
-    current_collection = f"Selected collection: {selected_collection}"
-    return jsonify({"updatedVariable": current_collection})
-
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    app.run_server(debug=True)

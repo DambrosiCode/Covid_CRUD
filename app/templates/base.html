@@ -25,29 +25,45 @@ src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js">
 </script>
 
 <!-- custom JS -->
-<!-- update updatedVariableDisplay html element when new collection is selected -->
 <script>
-function updateVariable(selectedCollection) {
-    fetch(`/update_variable?collection=${selectedCollection}`)
+collectionDropdown = document.getElementById("collectionDropdown");
+
+customTable = document.getElementById("customTable");
+
+collectionDropdown.addEventListener("change", function() {
+    selectedCollection = collectionDropdown.value;
+    updateCustomTable(selectedCollection);
+});
+
+//generate table
+
+
+function updateCustomTable(selectedCollection) {
+    console.log(selectedCollection)
+    fetch(`/get_collection_data?collection=${selectedCollection}`)
         .then(response => response.json())
         .then(data => {
-            document.getElementById("updatedVariableDisplay").textContent = data.updatedVariable;
+            // Clear existing table content
+            customTable.innerHTML = "";
+
+            // Populate the table with data
+            data.forEach(row => {
+                const newRow = customTable.insertRow();
+
+                // Iterate through each property in the row
+                for (const key in row) {
+                    if (row.hasOwnProperty(key)) {
+                        const cell = newRow.insertCell();
+                        cell.textContent = row[key];
+                    }
+                }
+            });
         })
         .catch(error => console.error("Error:", error));
 }
 </script>
 
-<!-- listen for changes in collections dropdown and trigger ajax request to flask app -->
-<script>
-function updateVariable(selectedCollection) {
-    fetch(`/?collection=${selectedCollection}`)
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById("updatedVariableDisplay").textContent = data.updatedVariable;
-        })
-        .catch(error => console.error("Error:", error));
-}
-</script>
+
 
 
 </body>

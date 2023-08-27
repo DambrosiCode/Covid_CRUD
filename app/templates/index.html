@@ -20,7 +20,7 @@
     </h2>
 
     <!-- Dropdown Collection -->
-    <select class="form-select" id="collectionDropdown", onchange="updateVariable(this.value)">
+    <select class="form-select" id="collectionDropdown">
         <option selected>Select a collection</option>
         {% for collection in collection_list %}
             <option>{{ collection }}</option>
@@ -50,8 +50,10 @@
 
     {% endif %}
     {% endwith %}
-    <div id="dataContainer">
-     <table class="table table-hover table-dark" >
+
+    <!-- mongo datatable -->
+    <div>
+     <table class="table table-hover table-dark" id="customTable">
 
      <tr>
       <th>ID</th>

@@ -1,0 +1,8 @@
+.table-container {
+    width: 100%; /* Make the container take full width of the browser */
+    overflow-x: auto; /* Enable horizontal scrolling if the content overflows */
+}
+
+#customTable {
+    width: 100%; /* Make the table take full width of the container */
+}
