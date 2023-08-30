@@ -23,7 +23,7 @@ mongo_db = get_database('Covid19_Risk_Factors')
 
 
 class MongoDBConnector:
-    def __init__(self, database = 'Covid19_Risk_Factors', default_collection_name = 'Test'):
+    def __init__(self, database='Covid19_Risk_Factors', default_collection_name='Age'):
         self.db = get_database(database)
         self.default_collection = default_collection_name
 
@@ -44,12 +44,13 @@ class MongoDBConnector:
         return df
 
 
-#get mongo connection
-mongo_connector = MongoDBConnector(default_collection_name='Test')
-#dataframe at startup
+# get mongo connection
+mongo_connector = MongoDBConnector(default_collection_name='Age')
+# dataframe at startup
 mongo_initial_df = mongo_connector.get_mongo_as_df()
-#collection cursor
-mongo_collection_cursor = mongo_connector.get_mongo_collection()
+mongo_initial_df = mongo_initial_df.loc[:,['_id', 'Study', 'Critical_only']] #subset desired cols
+# collection cursor
+#mongo_collection_cursor = mongo_connector.get_mongo_collection()
 
 app.layout = html.Div(children=[
     # datatable
@@ -69,7 +70,7 @@ app.layout = html.Div(children=[
     ),
     html.Button('Add Row', id='add-row-button', n_clicks=0),
     html.Button('Update Database', id='mongo-update-button', n_clicks=0),
-    dcc.Dropdown(id='collection-dropdown', options=sorted(mongo_db.collection_names()), value='Test'),
+    dcc.Dropdown(id='collection-dropdown', options=sorted(mongo_db.list_collection_names()), value='Age'),
 
     # confirmation popup
     dcc.ConfirmDialog(
@@ -87,15 +88,21 @@ app.layout = html.Div(children=[
 @callback([Output('editable-table', 'data'),
            Output('editable-table', 'columns'),
            Output('editable-table', 'page_current'),
-           Output('old-dataframe', 'data')],
+           Output('old-dataframe', 'data'),
+           Output('update-confirm-box', 'displayed'),],
+
           Input('collection-dropdown', 'value'),
           Input('add-row-button', 'n_clicks'),
           Input('editable-table', 'data'),
-          State('editable-table', 'data'),
+          Input('mongo-update-button', 'n_clicks'),
+
           State('editable-table', 'columns'),
           State('editable-table', 'page_size'),
+          State('editable-table', 'data'),
           State('old-dataframe', 'data'))
-def build_dataframe(selected_collection, n_clicks, edited_data_frame, rows, columns, page_size, old_dataframe):
+def build_dataframe(selected_collection, n_clicks, edited_data_frame, update_button,
+                    columns, page_size, edited_df, old_df):
+    # callback context
     trigger = ctx.triggered_id
 
     # get number of pages from pagination
@@ -103,10 +110,10 @@ def build_dataframe(selected_collection, n_clicks, edited_data_frame, rows, colu
 
     # append new rows if add rows is clicked
     if trigger == 'add-row-button':
-        rows.append({c['id']: str(ObjectId()) for c in columns})
+        edited_df.append({c['id']: str(ObjectId()) for c in columns})
 
-        #add new row to editable dataframe, update columns, set start page to last page, keep dcc.Store dataframe to unupdated fd
-        return rows, columns, last_page - 1, old_dataframe
+        # add new row to editable dataframe, update columns, set start page to last page, keep dcc.Store dataframe to unupdated fd
+        return edited_df, columns, last_page - 1, old_df, False
     # switch to a new dataframe
     elif trigger == 'collection-dropdown':
         new_df = mongo_connector.get_mongo_as_df(selected_collection)
@@ -115,56 +122,59 @@ def build_dataframe(selected_collection, n_clicks, edited_data_frame, rows, colu
         columns = [
             {'name': col, 'id': col, 'deletable': False} for col in new_df.columns
         ]
-        #change editable table to new collection, update columns, set start page, update dcc.Store dataframe to new collection
-        return new_df.to_dict('records'), columns, 0, new_df.to_dict('records')
+        # change editable table to new collection, update columns, set start page, update dcc.Store dataframe to new collection
+        return new_df.to_dict('records'), columns, 0, new_df.to_dict('records'), False
+
+    # update mongoDB
+    elif trigger == 'mongo-update-button':
+        print('update button')
+        print(selected_collection)
+        #set new cursor to selected collection
+        mongo_collection_cursor=mongo_connector.get_mongo_collection(selected_collection)
 
 
-# TODO: should new columns be addable?
+        if update_button > 0:
 
-# update mongoDB
-@callback(
-    [Output('update-confirm-box', 'displayed'),
-    Output('old-dataframe','data'),],
-    Input('mongo-update-button', 'n_clicks'),
-    State('editable-table', 'data'),
-    State('old-dataframe', 'data')
-)
-def update_mongo(click, edited_df, old_df):
-    if click > 0:
-        # compare dataframes
-        df_diff = id_df_change(old_df, edited_df)
-        # get rows deleted, added, and updated
-        df_diff_del = [ObjectId(diff['_id']) for diff in df_diff if diff['change_type'] == 'deleted']
-        df_diff_add = [diff['_id'] for diff in df_diff if diff['change_type'] == 'added']
-        df_diff_upd = [diff['_id'] for diff in df_diff if diff['change_type'] == 'updated']
-        # execute deletion
-        if len(df_diff_del) > 0:
-            mongo_collection_cursor.delete_many({'_id': {'$in': df_diff_del}})
+            # compare dataframes
+            df_diff = id_df_change(old_df, edited_df)
+            print(df_diff)
 
-        # execute addition
-        if len(df_diff_add) > 0:
-            added_rows = [doc for doc in edited_df if doc['_id'] in df_diff_add]
+            # get rows deleted, added, and updated
+            df_diff_del = [ObjectId(diff['_id']) for diff in df_diff if diff['change_type'] == 'deleted']
+            df_diff_add = [diff['_id'] for diff in df_diff if diff['change_type'] == 'added']
+            df_diff_upd = [diff['_id'] for diff in df_diff if diff['change_type'] == 'updated']
 
-            for doc in added_rows:
-                doc['_id'] = ObjectId(doc['_id'])
+            # execute deletion
+            if len(df_diff_del) > 0:
+                print({'_id': {'$in': df_diff_del}})
+                mongo_collection_cursor.delete_many({'_id': {'$in': df_diff_del}})
 
-            mongo_collection_cursor.insert_many(added_rows)
+            # execute addition
+            if len(df_diff_add) > 0:
+                added_rows = [doc for doc in edited_df if doc['_id'] in df_diff_add]
 
-        # execute updates
-        if len(df_diff_upd) > 0:
-            updated_rows = [doc for doc in edited_df if doc['_id'] in df_diff_upd]
-            # remove
-            updated_rows_noid = [{key: value for key, value in doc.items() if key != '_id'} for doc in updated_rows]
+                for doc in added_rows:
+                    doc['_id'] = ObjectId(doc['_id'])
 
-            bulk_operations = []
-            for i, doc in enumerate(updated_rows):
-                bulk_operations.append(UpdateOne({'_id': ObjectId(doc['_id'])},
-                                                 {'$set': updated_rows_noid[i]}))
-            print(bulk_operations)
-            mongo_collection_cursor.bulk_write(bulk_operations)
+                mongo_collection_cursor.insert_many(added_rows)
 
-        #return update notification, store edited df in dcc.Store
-        return True, edited_df
+            # execute updates
+            if len(df_diff_upd) > 0:
+                print('updates')
+                updated_rows = [doc for doc in edited_df if doc['_id'] in df_diff_upd]
+                print(updated_rows)
+                # remove
+                updated_rows_noid = [{key: value for key, value in doc.items() if key != '_id'} for doc in updated_rows]
+
+                bulk_operations = []
+                for i, doc in enumerate(updated_rows):
+                    bulk_operations.append(UpdateMany({'_id': ObjectId(doc['_id'])},
+                                                     {'$set': updated_rows_noid[i]}))
+                print(bulk_operations)
+                mongo_collection_cursor.bulk_write(bulk_operations)
+
+            # return update notification, store edited df in dcc.Store
+            return edited_df.to_dict('records'), columns, 0, edited_df.to_dict('records'), True
 
 
 if __name__ == '__main__':
