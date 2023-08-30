@@ -6,16 +6,15 @@ from bson import ObjectId
 from pymongo import UpdateOne, UpdateMany
 
 app = Dash(__name__)
-# TODO: Don't allow editing of _id
 # TODO: include input limiting
 # TODO: Upload CSV
-# TODO: refresh dataframe manually and/or intervally
-# TODO: reset dataframe
-# TODO: Serverside Caching (fine with small datasets but should be scaleable)
 # TODO: Verify user when changes are made
+# TODO: Auto-scroll to end of page when Add Row is pressed
 # TODO: Vizualize statistics
-# TODO: Improve Aesthetics
 # TODO: Vizualize changes that have been made before update
+# TODO: refresh dataframe manually and/or intervally
+# TODO: Serverside Caching (fine with small datasets but should be scaleable)
+# TODO: Improve Aesthetics
 
 
 # connect to mongoDB
@@ -48,7 +47,18 @@ class MongoDBConnector:
 mongo_connector = MongoDBConnector(default_collection_name='Age')
 # dataframe at startup
 mongo_initial_df = mongo_connector.get_mongo_as_df()
-mongo_initial_df = mongo_initial_df.loc[:,['_id', 'Study', 'Critical_only']] #subset desired cols
+target_cols = ['Date', 'Study', 'Study_Link', 'Journal','Sample_Size', 'Study_Type',
+               'Severe', 'Fatality',
+
+               'Severe_lower_bound', 'Severe_upper_bound','Severe_p-value',
+               'Severe_Adjusted', 'Severe_Calculated',
+               'Fatality_lower_bound',  'Fatality_upper_bound', 'Fatality_p-value',
+               'Fatality_Adjusted', 'Fatality_Calculated',
+               'Multivariate_adjustment',
+               'Critical_only', 'Discharged_vs._death?',
+               '_id'
+               ]
+mongo_initial_df = mongo_initial_df.loc[:,target_cols] #subset desired cols
 # collection cursor
 #mongo_collection_cursor = mongo_connector.get_mongo_collection()
 
@@ -57,8 +67,22 @@ app.layout = html.Div(children=[
     dash_table.DataTable(
         id='editable-table',
         columns=[
-            {'name': col, 'id': col, 'deletable': False} for col in mongo_initial_df.columns  # TODO: custom columns
+            {'name': col, 'id': col, 'deletable': False, 'editable': (col != '_id')}
+            for col in mongo_initial_df.columns  # TODO: custom columns
         ],
+        style_table={
+            'overflowX': 'auto',
+            'maxHeight': '90vh',
+            'overflowY': 'auto',  # Enable vertical scrolling
+        },
+        style_cell={'minWidth':'150px',
+                    'maxWidth':'150px',
+                    'maxHeight':'auto',
+                    'textAlign':'left',
+                    'whiteSpace':'normal',
+                    'textOverflow':'ellipsis'},
+
+        fixed_rows={'headers':True},
         data=mongo_initial_df.to_dict('records'),
         editable=True,
         row_deletable=True,
@@ -66,7 +90,7 @@ app.layout = html.Div(children=[
         sort_action='native',
         page_action='native',
         page_current=0,
-        page_size=10,
+        page_size=100,
     ),
     html.Button('Add Row', id='add-row-button', n_clicks=0),
     html.Button('Update Database', id='mongo-update-button', n_clicks=0),
