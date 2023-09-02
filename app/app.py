@@ -6,9 +6,13 @@ from bson import ObjectId
 from pymongo import UpdateOne, UpdateMany
 import io
 import base64
+#import user hashed passwords
+from user_config import USER_PW
+from bcrypt import checkpw
+import dash_auth
 
 app = Dash(__name__)
-# TODO: include input limiting
+
 # TODO: Verify user when changes are made
 # TODO: Vizualize statistics
 # TODO: Vizualize changes that have been made before update
@@ -94,6 +98,8 @@ app.layout = html.Div(children=[
     ),
     html.Button('Add Row', id='add-row-button', n_clicks=0),
     dcc.Upload(html.Button('Upload .csv'), id='csv-upload'),
+    dcc.Input(id='login-user', type='text', placeholder='username'),
+    dcc.Input(id='login-pass', type='password', placeholder='password'),
     html.Button('Update Database', id='mongo-update-button', n_clicks=0),
     dcc.Dropdown(id='collection-dropdown', options=sorted(mongo_db.list_collection_names()), value='Age'),
 
@@ -107,35 +113,68 @@ app.layout = html.Div(children=[
         id='validation-error'
     ),
 
+    dcc.ConfirmDialog(
+        id='validation-success',
+        message='Validation Successful!\nUpload?'
+    ),
+
+    dcc.ConfirmDialog(
+        id='incorrect-password',
+        message='Incorrect password\nPlease check CaSe SenSitIve'
+    ),
+
     # store initial dataframe in dcc.Store to compare usermade changes later
     dcc.Store(id='old-dataframe', data=mongo_initial_df.to_dict("records")),
-    # dcc.Store(id='collection-id', data='Test')
+    dcc.Store(id='valid-data', data=True),
 ])
+
+@callback(Output('incorrect-password', 'displayed'),
+          State('login-user','value'),
+          State('login-pass','value'),
+          Input('mongo-update-button', 'n_clicks'),
+          prevent_initial_call=True)
+def login_fail(username, password, update):
+    # if password fails alert user
+
+    try:
+        if checkpw(password.encode('utf-8'), USER_PW[username]) and update > 0:
+            pass
+        else:
+            return True
+    except:
+        return True
 
 
 # update user if validation fails
 @callback([Output('validation-error', 'message'),
-          Output('validation-error', 'displayed')],
+          Output('validation-error', 'displayed'),
+          Output('validation-success', 'displayed')],
 
           Input('mongo-update-button', 'n_clicks'),
 
           State('editable-table', 'data'),
-          State('old-dataframe', 'data'))
-def validate_notification(clicks, edited_df, old_df):
-    df_diff = id_df_change(old_df, edited_df)
-    new_entry_ids = [_id['_id'] for _id in df_diff]
-    edited_df = pd.DataFrame(edited_df)
-    new_entries = edited_df[edited_df['_id'].isin(new_entry_ids)]
+          State('old-dataframe', 'data'),
+          State('login-user', 'value'),
+          State('login-pass', 'value'),
+          )
+def validate_notification(clicks, edited_df, old_df, username, password):
+    # run if password correct
+    if checkpw(password.encode('utf-8'), USER_PW[username]):
+        df_diff = id_df_change(old_df, edited_df)
+        new_entry_ids = [_id['_id'] for _id in df_diff]
+        edited_df = pd.DataFrame(edited_df)
+        new_entries = edited_df[edited_df['_id'].isin(new_entry_ids)]
 
-    validation = True
+        validation = True
 
-    if validation and clicks > 0:
-        results = data_validation(new_entries)
-        print(results)
-        if results is not True:
-            return results, True
-        else:
-            return 'Validation Successful!', True
+        if validation and clicks > 0:
+            results = data_validation(new_entries)
+            # if data is not valid alert the user and don't allow uploads
+            if results is not True:
+                return results, True, False
+            else:
+            # if the data is valid alert the user and allow uploads
+                return 'Validation Successful!', False, True
 
 
 # edit dataframe
@@ -147,18 +186,23 @@ def validate_notification(clicks, edited_df, old_df):
 
           Input('collection-dropdown', 'value'),
           Input('add-row-button', 'n_clicks'),
-          Input('mongo-update-button', 'n_clicks'),
+          # Input('mongo-update-button', 'n_clicks'),
           Input('csv-upload', 'contents'),
           Input('csv-upload', 'filename'),
+          Input('validation-success', 'submit_n_clicks'),
 
           State('editable-table', 'columns'),
           State('editable-table', 'page_size'),
           State('editable-table', 'data'),
-          State('old-dataframe', 'data'))
-def build_dataframe(selected_collection, n_clicks, update_button, contents, filename,
+          State('old-dataframe', 'data'),
+          )
+def build_dataframe(selected_collection, n_clicks, contents, filename, upload_submit,
                     columns, page_size, edited_df, old_df):
+    # run if password correct
+
     # callback context
     trigger = ctx.triggered_id
+
 
     # if user uploads a csv dataframe
     if trigger == 'csv-upload':
@@ -174,10 +218,8 @@ def build_dataframe(selected_collection, n_clicks, update_button, contents, file
         csv_df['_id'] = new_ids
 
         # append dataframe to current collection
-        print(edited_df)
         combined_df = pd.concat([pd.DataFrame(edited_df), csv_df], ignore_index=True)
 
-        print(combined_df)
         last_page = (len(combined_df) + 1) // page_size + ((len(combined_df) + 1) % page_size > 0)
 
         # return new dataframe as editable_df+csv_df, columns, go to last page of new df, don't update old df, no notifcation box
@@ -189,7 +231,6 @@ def build_dataframe(selected_collection, n_clicks, update_button, contents, file
     # append new rows if add rows is clicked
     if trigger == 'add-row-button':
         edited_df.append({c['id']: str(ObjectId()) for c in columns})
-        print(last_page)
 
         # add new row to editable dataframe, update columns, set start page to last page, keep dcc.Store dataframe to unupdated fd
         return edited_df, columns, last_page - 1, old_df, False
@@ -205,17 +246,14 @@ def build_dataframe(selected_collection, n_clicks, update_button, contents, file
         return new_df.to_dict('records'), columns, 0, new_df.to_dict('records'), False
 
     # update mongoDB
-    elif trigger == 'mongo-update-button':
-        print('update button')
-        print(selected_collection)
+    elif trigger == 'validation-success':
         # set new cursor to selected collection
         mongo_collection_cursor = mongo_connector.get_mongo_collection(selected_collection)
 
-        if update_button > 0:
+        if upload_submit > 0:
 
             # compare dataframes
             df_diff = id_df_change(old_df, edited_df)
-            print(df_diff)
 
             # get rows deleted, added, and updated
             df_diff_del = [ObjectId(diff['_id']) for diff in df_diff if diff['change_type'] == 'deleted']
@@ -224,7 +262,6 @@ def build_dataframe(selected_collection, n_clicks, update_button, contents, file
 
             # execute deletion
             if len(df_diff_del) > 0:
-                print({'_id': {'$in': df_diff_del}})
                 mongo_collection_cursor.delete_many({'_id': {'$in': df_diff_del}})
 
             # execute addition
@@ -238,9 +275,7 @@ def build_dataframe(selected_collection, n_clicks, update_button, contents, file
 
             # execute updates
             if len(df_diff_upd) > 0:
-                print('updates')
                 updated_rows = [doc for doc in edited_df if doc['_id'] in df_diff_upd]
-                print(updated_rows)
                 # remove
                 updated_rows_noid = [{key: value for key, value in doc.items() if key != '_id'} for doc in updated_rows]
 
@@ -248,7 +283,6 @@ def build_dataframe(selected_collection, n_clicks, update_button, contents, file
                 for i, doc in enumerate(updated_rows):
                     bulk_operations.append(UpdateMany({'_id': ObjectId(doc['_id'])},
                                                       {'$set': updated_rows_noid[i]}))
-                print(bulk_operations)
                 mongo_collection_cursor.bulk_write(bulk_operations)
 
             # return update notification, store edited df in dcc.Store

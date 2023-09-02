@@ -36,28 +36,27 @@ def data_validation(df):
     Discharged_vs_death_r = ['Y', 'N', '']
 
     for index in df['_id']:
-        print(index)
         row = df[df['_id']==index]
-        print(row.Date.astype("string"))
         # validate date
-        if re.match(date_r, str(row['Date'])) is None:
+        if re.match(date_r, str(row['Date'].values[0])) is None:
             errors.append('index: ' + str(index) + " Date: YYYY-MM-dd")
-            print('123123123')
+
         # validate Study Link
-        if re.match(link_r, str(row.Study_Link)) is None:
+        if re.match(link_r, str(row['Study_Link'].values[0])) is None:
             errors.append('index: ' + str(index) + ' Study Link: http(s) link')
 
-            # validate Sample Size
-        if str(row.Sample_Size) is not Sample_Size_r:
+        # validate Sample Size as int
+        try:
+            int(row['Sample_Size'].values[0])
+        except ValueError:
             errors.append('index: ' + str(index) + ' Sample Size: int')
 
-
             # validate Critical Only
-        if str(row.Critical_only) not in Critical_only_r:
+        if str(row['Critical_only'].values[0]) not in Critical_only_r:
             errors.append('index: ' + str(index) + ' Critical Only: "Y/N/''"')
 
             # validate Discharged vs death
-        if str(row['Discharged_vs._death?']) not in Discharged_vs_death_r:
+        if str(row['Discharged_vs._death?'].values[0]) not in Discharged_vs_death_r:
             errors.append('index: ' + str(index) + ' Discharged_vs._death?: "Y/N/''"')
 
     if len(errors) > 0:
