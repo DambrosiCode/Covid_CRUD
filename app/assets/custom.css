@@ -1,0 +1,29 @@
+.dropdown {
+    background-color: grey;
+    margin-bottom: 10px;
+}
+
+/* Style the delete button within the delete cell */
+.dash-delete-cell {
+    color: red !important;
+    text-align: center !important;
+    font-size: 25px !important;
+}
+
+.column-header-name {
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner input:not([type=radio]):not([type=checkbox]){
+    color: white!important;
+}
+
+.btn-primary {
+    background-color: #52D1DC;
+}
+
+body {
+    background-color: #1D1D20;
+    overflow: hidden;
+}

@@ -1,4 +1,6 @@
 from dash import Dash, dash_table, dcc, ctx, html, Input, Output, State, callback
+import dash_bootstrap_components as dbc
+
 from pymongo_get_db import get_database
 from mongo_manip import id_df_change, data_validation
 import pandas as pd
@@ -9,10 +11,14 @@ import base64
 #import user hashed passwords
 from user_config import USER_PW
 from bcrypt import checkpw
+
+#import config
+from table_config import table_config_cond
 import dash_auth
 
-app = Dash(__name__)
-
+app = Dash(
+    external_stylesheets=[dbc.themes.CYBORG]
+           )
 # TODO: Verify user when changes are made
 # TODO: Vizualize statistics
 # TODO: Vizualize changes that have been made before update
@@ -67,6 +73,12 @@ mongo_initial_df = mongo_initial_df.loc[:, target_cols]  # subset desired cols
 # mongo_collection_cursor = mongo_connector.get_mongo_collection()
 
 app.layout = html.Div(children=[
+    html.H1('Covid19 Risk Analysis Explorer', style={'textAlign': 'center'}),
+    html.P('Select a population collection'),
+    dcc.Dropdown(id='collection-dropdown', options=sorted(mongo_db.list_collection_names()),
+                 value='Age',
+                 className='dropdown'),
+
     # datatable
     dash_table.DataTable(
         id='editable-table',
@@ -74,17 +86,32 @@ app.layout = html.Div(children=[
             {'name': col, 'id': col, 'deletable': False, 'editable': (col != '_id')}
             for col in mongo_initial_df.columns
         ],
+        style_header={
+            'backgroundColor': 'rgb(71, 91, 90)',
+            'color': 'white'
+        },
         style_table={
             'overflowX': 'auto',
             'maxHeight': '90vh',
             'overflowY': 'auto',  # Enable vertical scrolling
         },
-        style_cell={'minWidth': '150px',
-                    'maxWidth': '150px',
+        style_data={
+            'backgroundColor': 'rgb(163, 169, 170)',
+            'color': 'black'
+        },
+        style_filter={
+            'backgroundColor': 'rgb(141, 142, 142)',
+            'color': 'white',
+        },
+        style_cell={'minWidth': '175px',
+                    'maxWidth': '175px',
                     'maxHeight': 'auto',
                     'textAlign': 'left',
                     'whiteSpace': 'normal',
-                    'textOverflow': 'ellipsis'},
+                    'textOverflow': 'ellipsis',
+                    'font_size':'10px',
+                    'color':'black'},
+        style_data_conditional=table_config_cond,
 
         fixed_rows={'headers': True},
         data=mongo_initial_df.to_dict('records'),
@@ -96,12 +123,18 @@ app.layout = html.Div(children=[
         page_current=0,
         page_size=5,
     ),
-    html.Button('Add Row', id='add-row-button', n_clicks=0),
-    dcc.Upload(html.Button('Upload .csv'), id='csv-upload'),
+    html.Div([
+        dbc.Button('Add Row', id='add-row-button', n_clicks=0),
+        html.Div([
+            dcc.Upload(dbc.Button('Upload .csv'), id='csv-upload-button',),
+        ],  style={'display': 'inline-block', 'float': 'right'}),
+    ]),
+
+
+
     dcc.Input(id='login-user', type='text', placeholder='username'),
     dcc.Input(id='login-pass', type='password', placeholder='password'),
-    html.Button('Update Database', id='mongo-update-button', n_clicks=0),
-    dcc.Dropdown(id='collection-dropdown', options=sorted(mongo_db.list_collection_names()), value='Age'),
+    dbc.Button('Update Database', id='mongo-update-button', n_clicks=0),
 
     # confirmation popup
     dcc.ConfirmDialog(
@@ -126,7 +159,7 @@ app.layout = html.Div(children=[
     # store initial dataframe in dcc.Store to compare usermade changes later
     dcc.Store(id='old-dataframe', data=mongo_initial_df.to_dict("records")),
     dcc.Store(id='valid-data', data=True),
-])
+], style={'padding':'10px'})
 
 @callback(Output('incorrect-password', 'displayed'),
           State('login-user','value'),
@@ -187,8 +220,8 @@ def validate_notification(clicks, edited_df, old_df, username, password):
           Input('collection-dropdown', 'value'),
           Input('add-row-button', 'n_clicks'),
           # Input('mongo-update-button', 'n_clicks'),
-          Input('csv-upload', 'contents'),
-          Input('csv-upload', 'filename'),
+          Input('csv-upload-button', 'contents'),
+          Input('csv-upload-button', 'filename'),
           Input('validation-success', 'submit_n_clicks'),
 
           State('editable-table', 'columns'),
@@ -205,7 +238,7 @@ def build_dataframe(selected_collection, n_clicks, contents, filename, upload_su
 
 
     # if user uploads a csv dataframe
-    if trigger == 'csv-upload':
+    if trigger == 'csv-upload-button':
         # convert upload to dataframe
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
