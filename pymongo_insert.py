@@ -22,12 +22,14 @@ def upload_csv(db_name, collection_name, csv_path):
         collection.insert_many(collection_json)
 
 
+def main():
+    parser = argparse.ArgumentParser(description="Upload CSV data to MongoDB.")
+    parser.add_argument("--db_name", required=True, help="Name of the MongoDB database.")
+    parser.add_argument("--collection_name", required=True, help="Name of the MongoDB collection.")
+    parser.add_argument("--csv_path", required=True, help="Path to the CSV file to upload.")
+
+    args = parser.parse_args()
+    upload_csv_to_mongodb(args.db_name, args.collection_name, args.csv_path)
 
 if __name__ == "__main__":
-    # Specify your database name, collection name, and CSV file path here
-    database_name = "database_name"
-    collection_name = "collection_name"
-    csv_file_path = "csv/folder/path/"
-    
-    # Call the function to upload the CSV data to MongoDB
-    upload_csv_to_mongodb(database_name, collection_name, csv_file_path)
+    main()
