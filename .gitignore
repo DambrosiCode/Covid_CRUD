@@ -1,4 +1,5 @@
 app/config.json
+app/user_config.py
 Kaggle
 document_parses
 cord_19_embeddings
