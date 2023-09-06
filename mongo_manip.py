@@ -50,6 +50,8 @@ def data_validation(df):
             int(row['Sample_Size'].values[0])
         except ValueError:
             errors.append('index: ' + str(index) + ' Sample Size: int')
+        except TypeError:
+            errors.append('index: ' + str(index) + ' Sample Size: int')
 
             # validate Critical Only
         if str(row['Critical_only'].values[0]) not in Critical_only_r:

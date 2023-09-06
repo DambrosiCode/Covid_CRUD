@@ -270,7 +270,7 @@ def build_dataframe(selected_collection, n_clicks, contents, filename, upload_su
     # switch to a new dataframe
     elif trigger == 'collection-dropdown':
         new_df = mongo_connector.get_mongo_as_df(selected_collection)
-
+        new_df = new_df[target_cols]
         # get columns
         columns = [
             {'name': col, 'id': col, 'deletable': False} for col in new_df.columns
