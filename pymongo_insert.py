@@ -25,9 +25,9 @@ def upload_csv(db_name, collection_name, csv_path):
 
 if __name__ == "__main__":
     # Specify your database name, collection name, and CSV file path here
-    database_name = "your_database_name"
-    collection_name = "your_collection_name"
-    csv_file_path = "your_csv_file.csv"
+    database_name = "database_name"
+    collection_name = "collection_name"
+    csv_file_path = "csv/folder/path/"
     
     # Call the function to upload the CSV data to MongoDB
     upload_csv_to_mongodb(database_name, collection_name, csv_file_path)
