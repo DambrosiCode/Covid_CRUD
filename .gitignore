@@ -8,5 +8,3 @@ app/docs/insert_covid_series.py
 Dockerfile
 coviddash.tar
 .ipynb_checkpoints/
-__pycache__
-app/docs/__pycache__
