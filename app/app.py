@@ -1,11 +1,11 @@
 from dash import Dash, dash_table, dcc, ctx, html, Input, Output, State, callback
 import dash_bootstrap_components as dbc
 
-from pymongo_get_db import get_database
-from mongo_manip import id_df_change, data_validation
+from docs.pymongo_get_db import get_database
+from docs.mongo_manip import id_df_change, data_validation
 import pandas as pd
 from bson import ObjectId
-from pymongo import UpdateOne, UpdateMany
+from pymongo import UpdateMany
 import io
 import base64
 #import user hashed passwords
@@ -14,7 +14,6 @@ from bcrypt import checkpw
 
 #import config
 from table_config import table_config_cond
-import dash_auth
 
 app = Dash(
     external_stylesheets=[dbc.themes.CYBORG]
@@ -73,7 +72,7 @@ mongo_initial_df = mongo_initial_df.loc[:, target_cols]  # subset desired cols
 # mongo_collection_cursor = mongo_connector.get_mongo_collection()
 
 app.layout = html.Div(children=[
-    html.H1('Covid19 Risk Analysis Explorer', style={'textAlign': 'center'}),
+    html.H1('COVID-19 Risk Analysis Explorer', style={'textAlign': 'center'}),
     html.P('Select a population collection'),
     dcc.Dropdown(id='collection-dropdown', options=sorted(mongo_db.list_collection_names()),
                  value='Age',
@@ -232,7 +231,6 @@ def validate_notification(clicks, edited_df, old_df, username, password):
 def build_dataframe(selected_collection, n_clicks, contents, filename, upload_submit,
                     columns, page_size, edited_df, old_df):
     # run if password correct
-
     # callback context
     trigger = ctx.triggered_id
 
@@ -270,7 +268,7 @@ def build_dataframe(selected_collection, n_clicks, contents, filename, upload_su
     # switch to a new dataframe
     elif trigger == 'collection-dropdown':
         new_df = mongo_connector.get_mongo_as_df(selected_collection)
-
+        new_df = new_df[target_cols]
         # get columns
         columns = [
             {'name': col, 'id': col, 'deletable': False} for col in new_df.columns
@@ -284,8 +282,11 @@ def build_dataframe(selected_collection, n_clicks, contents, filename, upload_su
         mongo_collection_cursor = mongo_connector.get_mongo_collection(selected_collection)
 
         if upload_submit > 0:
+            print('upload submit')
 
             # compare dataframes
+            print(old_df)
+            print(edited_df)
             df_diff = id_df_change(old_df, edited_df)
 
             # get rows deleted, added, and updated
@@ -319,8 +320,19 @@ def build_dataframe(selected_collection, n_clicks, contents, filename, upload_su
                 mongo_collection_cursor.bulk_write(bulk_operations)
 
             # return update notification, store edited df in dcc.Store
-            return edited_df.to_dict('records'), columns, 0, edited_df.to_dict('records'), True
+            edited_df = pd.DataFrame(edited_df)
+
+
+            edited_df['_id'] = edited_df['_id'].astype(str)
+
+            return (edited_df.to_dict('records'), #update user UI
+                    columns, # return column names
+                    0, #return page
+                    edited_df.to_dict('records'), #update old dataframe
+                    True) # confirm box open
+
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(host='0.0.0.0', port=8050, debug=True)
+    #app.run_server(debug=False, dev_tools_ui=None)

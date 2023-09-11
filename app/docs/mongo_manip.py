@@ -8,6 +8,8 @@ def id_df_change(unedited_df, edited_df):
 
     # Identify deletions
     deleted_ids = set(item['_id'] for item in unedited_df) - set(item['_id'] for item in edited_df)
+
+
     for _id in deleted_ids:
         changes.append({'_id': _id, 'change_type': 'deleted'})
 
@@ -49,6 +51,8 @@ def data_validation(df):
         try:
             int(row['Sample_Size'].values[0])
         except ValueError:
+            errors.append('index: ' + str(index) + ' Sample Size: int')
+        except TypeError:
             errors.append('index: ' + str(index) + ' Sample Size: int')
 
             # validate Critical Only
