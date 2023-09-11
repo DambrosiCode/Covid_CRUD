@@ -1,7 +1,12 @@
-app/config.json
+app/docs/config.json
 app/user_config.py
 Kaggle
 document_parses
 cord_19_embeddings
-insert_covid_series.py
+app/docs/insert_covid_series.py
 .env
+Dockerfile
+coviddash.tar
+.ipynb_checkpoints/
+__pycache__
+app/docs/__pycache__
